@@ -1,0 +1,40 @@
+classDiagram
+    class LibraryItem {
+        <<abstract>>
+        -int id
+        -string title
+        -int year
+        -int extraDays
+        +lateFee(daysHeld) double
+        +loanDays()* int
+        +finePerDay()* double
+        +kindName()* string
+        +clone()* unique_ptr
+    }
+    class IRenewable {
+        <<interface>>
+        +renew()* void
+        +renewalsLeft()* int
+    }
+    LibraryItem <|-- Book
+    LibraryItem <|-- Magazine
+    LibraryItem <|-- DVD
+    Book <|-- EBook
+    IRenewable <|.. Book
+    IRenewable <|.. Magazine
+    class Library {
+        -vector~unique_ptr~ items
+        -vector~Reader~ readers
+        +borrow(readerId,itemId)
+        +giveBack(readerId,itemId,daysHeld)
+        +save(path)
+        +load(path)
+    }
+    class Reader {
+        -string name
+        -double debt
+        -vector~LibraryItem*~ borrowed
+    }
+    Library *-- LibraryItem : owns
+    Library *-- Reader : owns
+    Reader o-- LibraryItem : non-owning pointers
