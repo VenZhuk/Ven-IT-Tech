@@ -1,8 +1,27 @@
 // Day 6: embedded C++ UI inside the main application (Shadow DOM isolation).
 window.mountDay6 = function(host) {
   if (!host) return;
-  const root = host.attachShadow({mode:'open'});
+  const root = host.shadowRoot || host.attachShadow({mode:'open'});
   root.innerHTML = `<style>:root{font-family:system-ui,Arial;color-scheme:dark}body{margin:0;background:#101827;color:#eaf0fb}header{padding:22px;background:#18263b;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}a{color:#87c9ff}main{max-width:1060px;margin:auto;padding:24px}h1{margin:0}nav{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;margin:20px 0}button,select,input,textarea{font:inherit;border:1px solid #41536d;border-radius:9px;background:#1c2b42;color:white;padding:10px}button{cursor:pointer}button:hover{background:#315079}button.active{background:#1368a7}section{background:#18263b;border:1px solid #31425a;border-radius:14px;padding:20px}label{display:block;margin:12px 0}input,textarea{width:min(100%,620px);box-sizing:border-box}textarea{height:90px}pre{background:#0b1220;white-space:pre-wrap;overflow-wrap:anywhere;padding:16px;border-radius:10px;min-height:80px}small{color:#afc0d6}.actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.note{color:#bad0e5}</style><main><nav id="nav"></nav><section><h2 id="heading"></h2><p class="note" id="desc"></p><div id="fields"></div><div class="actions"><button id="execute">Виконати</button><button id="example">Контрольний приклад</button><button id="reset">Очистити</button><button id="save">Експорт JSON</button><label style="margin:0">Імпорт JSON <input accept=".json" id="upload" style="width:220px" type="file"/></label></div><pre aria-live="polite" id="output"></pre></section><p><small>Виконання: локальний C++ сервер (порт 18080). Без запущеного сервера обчислення недоступні. Реалізація навчальна; повний набір вимог рівнів Б/В потребує подальшої перевірки.</small></p></main>`;
+  // Show C++ API status in the embedded main-site panel.
+  const status = document.createElement('p');
+  status.setAttribute('role', 'status');
+  status.style.cssText = 'padding:12px 14px;border:1px solid #41536d;border-radius:9px;margin:0 0 14px;color:#bad0e5';
+  root.querySelector('section').insertBefore(status, root.querySelector('section').firstChild);
+  if (location.hostname.endsWith('github.io')) {
+    status.textContent = 'GitHub Pages показує інтерфейс, але не запускає C++. Для обчислень відкрий сайт через локальний сервер http://127.0.0.1:18080.';
+  } else {
+    status.textContent = 'Перевірка з’єднання з C++ сервером…';
+    fetch('/api/health', {cache:'no-store'}).then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(data => {
+      if (!data.ok) throw new Error('API недоступний');
+      status.textContent = 'C++ сервер підключено. Можна виконувати всі 10 варіантів.';
+    }).catch(() => {
+      status.textContent = 'C++ сервер недоступний. Запусти run_day6.bat або run_day6.sh і відкрий http://127.0.0.1:18080.';
+    });
+  }
   (function(){
 
 'use strict';
