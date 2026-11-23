@@ -8,19 +8,18 @@ window.mountDay6 = function(host) {
   status.setAttribute('role', 'status');
   status.style.cssText = 'padding:12px 14px;border:1px solid #41536d;border-radius:9px;margin:0 0 14px;color:#bad0e5';
   root.querySelector('section').insertBefore(status, root.querySelector('section').firstChild);
-  if (location.hostname.endsWith('github.io')) {
-    status.textContent = 'GitHub Pages показує інтерфейс, але не запускає C++. Для обчислень відкрий сайт через локальний сервер http://127.0.0.1:18080.';
-  } else {
-    status.textContent = 'Перевірка з’єднання з C++ сервером…';
-    fetch('/api/health', {cache:'no-store'}).then(r => {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return r.json();
-    }).then(data => {
-      if (!data.ok) throw new Error('API недоступний');
-      status.textContent = 'C++ сервер підключено. Можна виконувати всі 10 варіантів.';
-    }).catch(() => {
-      status.textContent = 'C++ сервер недоступний. Запусти run_day6.bat або run_day6.sh і відкрий http://127.0.0.1:18080.';
+  let wasmReady = null;
+  if (typeof window.createDay6Module === 'function') {
+    status.textContent = 'Завантаження C++ WebAssembly…';
+    wasmReady = window.createDay6Module().then(module => {
+      status.textContent = 'C++ WebAssembly готовий. Усі 10 варіантів працюють у браузері.';
+      return module;
+    }).catch(err => {
+      status.textContent = 'Помилка WebAssembly: ' + err.message;
+      throw err;
     });
+  } else {
+    status.textContent = 'WebAssembly ще не зібрано. Перевір розгортання GitHub Actions.';
   }
   (function(){
 
@@ -30,7 +29,19 @@ const descriptions=['push/pop, вставка, видалення, реверс'
 const examples=[['push 1; push 2; push 3; reverse; erase 1'],['insert 50; insert 30; insert 70; insert 20; insert 40; insert 60; insert 80; erase 50'],['push 1; push 2; push 3; push 4; pop; push 5; push 6'],['1,2;3,4'],['push 5; push 1; push 8; push 3; pop'],['to be or not to be'],['1-2,1-3,2-4,3-4,4-5,6-7'],['car,card,care,cat,dog'],['3x^2 - 2x + 1'],['put 1 A; put 2 B; get 1; put 3 C; get 2; get 3']];
 const state=Array.from({length:10},()=>({}));let current=0;const $=id=>root.querySelector("#"+id);const output=s=>$('output').textContent=s;const numbers=s=>s.split(/[\s,;]+/).filter(Boolean).map(x=>{let n=Number(x);if(!Number.isFinite(n))throw Error('Очікується число: '+x);return n});const cmds=s=>s.split(/[;\n]+/).map(x=>x.trim()).filter(Boolean);
 function render(){ $('nav').innerHTML=titles.map((t,i)=>`<button data-i="${i}" class="${i===current?'active':''}">${i+1}. ${t}</button>`).join('');root.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>{current=+b.dataset.i;render()});$('heading').textContent=`Варіант ${current+1}. ${titles[current]}`;$('desc').textContent=descriptions[current];const lbl=['Команди (розділяй крапкою з комою)','Команди insert/erase/contains','Команди push/pop, ємність окремо','Матриця: рядки через ;, числа через кому','Команди push/pop або числа','Текст для частотного словника','Ребра A-B через кому','Слова через кому','Многочлен P(x)','Команди put ключ значення; get ключ'][current];$('fields').innerHTML=`<label>${lbl}<textarea id="data"></textarea></label>`+(current===2||current===9?`<label>Ємність <input id="capacity" type="number" min="1" max="10000" value="${current===2?3:2}"></label>`:'')+(current===4?'<label>Режим <select id="mode"><option value="max">Max-heap</option><option value="min">Min-heap</option></select></label>':'')+(current===6?'<label>Початкова вершина <input id="start" value="1"></label><label>Кінцева вершина <input id="end" value="5"></label>':'')+(current===7?'<label>Префікс <input id="prefix" value="car"></label><label>Видалити слово (необов’язково) <input id="remove"></label>':'')+(current===8?'<label>x для P(x) <input id="x" type="number" value="2"></label><label>Q(x) <input id="q" value="x - 1"></label>':'');$('data').value=state[current].data??examples[current][0];output('Готово до виконання.');}
-$('execute').onclick=async()=>{try{const payload={day:'6',variant:current+1,data:$('data').value,capacity:$('capacity')?.value||'2',mode:$('mode')?.value||'max',start:$('start')?.value||'1',end:$('end')?.value||'5',prefix:$('prefix')?.value||'car',remove:$('remove')?.value||'',q:$('q')?.value||'x - 1',x:$('x')?.value||'2'};output('Виконання C++…');const res=await fetch('/api/compute',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const json=await res.json();if(!res.ok||!json.ok)throw Error(json.error||'Помилка сервера');output('[C++17]\n'+json.result)}catch(e){output('C++ сервер недоступний або помилка: '+e.message+'\nЗапусти run_day6.bat / run_day6.sh та відкрий http://127.0.0.1:18080')}};$('example').onclick=()=>{$('data').value=examples[current][0];output('Контрольний приклад завантажено. Натисни «Виконати».')};$('reset').onclick=()=>{$('data').value='';output('Очищено.')};$('save').onclick=()=>{let blob=new Blob([JSON.stringify({variant:current+1,data:$('data').value,capacity:$('capacity')?.value,mode:$('mode')?.value},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='day6_variant_'+(current+1)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};$('upload').onchange=async e=>{try{let file=e.target.files[0];if(!file)return;if(file.size>1000000)throw Error('Файл завеликий');let obj=JSON.parse(await file.text());if(typeof obj.data!=='string')throw Error('Некоректний файл');$('data').value=obj.data;if($('capacity')&&obj.capacity)$('capacity').value=obj.capacity;output('Дані імпортовано.')}catch(err){output('Помилка імпорту: '+err.message)}};render();
+$('execute').onclick=async()=>{try{const payload={day:'6',variant:current+1,data:$('data').value,capacity:$('capacity')?.value||'2',mode:$('mode')?.value||'max',start:$('start')?.value||'1',end:$('end')?.value||'5',prefix:$('prefix')?.value||'car',remove:$('remove')?.value||'',q:$('q')?.value||'x - 1',x:$('x')?.value||'2'};output('Виконання C++…');let json;
+if(wasmReady){
+  const wasm=await wasmReady;
+  json=JSON.parse(wasm.ccall('day6_compute','string',['string'],[JSON.stringify(payload)]));
+}else if(location.hostname==='127.0.0.1'||location.hostname==='localhost'){
+  const res=await fetch('/api/compute',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  json=await res.json();
+  if(!res.ok)throw Error('HTTP '+res.status);
+}else{
+  throw Error('WebAssembly не завантажено: перевір GitHub Actions');
+}
+if(!json.ok)throw Error(json.error||'Помилка C++');
+output('[C++ WebAssembly]\\n'+json.result)}catch(e){output('Помилка виконання C++: '+e.message)}};$('example').onclick=()=>{$('data').value=examples[current][0];output('Контрольний приклад завантажено. Натисни «Виконати».')};$('reset').onclick=()=>{$('data').value='';output('Очищено.')};$('save').onclick=()=>{let blob=new Blob([JSON.stringify({variant:current+1,data:$('data').value,capacity:$('capacity')?.value,mode:$('mode')?.value},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='day6_variant_'+(current+1)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};$('upload').onchange=async e=>{try{let file=e.target.files[0];if(!file)return;if(file.size>1000000)throw Error('Файл завеликий');let obj=JSON.parse(await file.text());if(typeof obj.data!=='string')throw Error('Некоректний файл');$('data').value=obj.data;if($('capacity')&&obj.capacity)$('capacity').value=obj.capacity;output('Дані імпортовано.')}catch(err){output('Помилка імпорту: '+err.message)}};render();
 
   })();
 };
