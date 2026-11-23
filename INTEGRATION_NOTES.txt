@@ -1,0 +1,5 @@
+Ven IT Tech 3.0 + День 6 — очищена збірка.
+Єдиний вхід: index.html. День 6 монтується у #content через day6_module.js.
+Прибрано дубль day6.html, невикористовувану JS-імітацію C++ та Linux-бінарник server.
+Для локального C++ API запускайте run_day6.bat / run_day6.sh (C++20 + Boost).
+GitHub Pages показує інтерфейс, але не виконує C++ API.
